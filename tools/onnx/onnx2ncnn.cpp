@@ -74,6 +74,19 @@ static std::vector<int> get_node_attr_ai(const onnx::NodeProto& node, const char
     return v;
 }
 
+static void set_node_attr_ai(onnx::NodeProto& node, const char* key,
+                             const std::vector<int>& value)
+{
+    onnx::AttributeProto* attr_group = node.add_attribute();
+    attr_group->set_name(key);
+    for (auto v : value)
+    {
+        attr_group->add_ints(v);
+    }
+
+    return;
+}
+
 static std::vector<float> get_node_attr_af(const onnx::NodeProto& node, const char* key)
 {
     std::vector<float> v;
@@ -354,6 +367,48 @@ static void fwrite_tensor_proto_data(const onnx::TensorProto& tp, FILE* bp)
     else if (tp.data_type() == 1)
     {
         fwrite(tp.float_data().data(), sizeof(float), size, bp);
+    }
+}
+
+static void fuse_rewrite_gather(onnx::GraphProto* mutable_graph,
+                                std::map<std::string, onnx::TensorProto>& weights,
+                                std::map<std::string, int>& node_reference,
+                                std::set<std::string>& blob_names, int& reduced_node_count)
+{
+    const int node_count = mutable_graph->node_size();
+    for (int i = 0; i < node_count; ++i)
+    {
+        onnx::NodeProto* gather = mutable_graph->mutable_node(i);
+        if (gather->op_type() != "Gather")
+        {
+            continue;
+        }
+        auto indices = get_node_attr_from_input_ai(weights[gather->input(1)]);
+        if (indices.size() != 1)
+        {
+            continue;
+        }
+
+        {
+            // reconstruct node connections
+            node_reference[gather->input(1)] -= 1;
+            std::string origin_inp = gather->input(0);
+            gather->clear_input();
+            gather->add_input(origin_inp);
+        }
+
+        {
+            // update axis, starts and ends
+            int axis = get_node_attr_i(*gather, "axis", 1) - 1;
+
+            gather->set_op_type("Crop");
+            gather->clear_attribute();
+
+            int indice = indices[0];
+            set_node_attr_ai(*gather, "starts", std::vector<int> {indice});
+            set_node_attr_ai(*gather, "ends", std::vector<int> {indice + 1});
+            set_node_attr_ai(*gather, "axis", std::vector<int> {axis});
+        }
     }
 }
 
@@ -2010,7 +2065,14 @@ static void fuse_expand_broadcast(onnx::GraphProto* mutable_graph, std::map<std:
 
             blob_names.erase(node->output(0));
 
-            node2->set_input(1, node->input(0));
+            if (node2->input(0) == node->output(0))
+            {
+                node2->set_input(0, node->input(0));
+            }
+            else
+            {
+                node2->set_input(1, node->input(0));
+            }
 
             reduced_node_count += 1;
             i += 1;
@@ -3092,6 +3154,7 @@ int main(int argc, char** argv)
     fuse_lstm_gru_rnn(mutable_graph, weights, node_reference, blob_names, reduced_node_count);
     fuse_multiheadattention(mutable_graph, weights, node_reference, blob_names, reduced_node_count);
     fuse_binaryop_with_scalar(mutable_graph, weights, node_reference, blob_names, reduced_node_count);
+    fuse_rewrite_gather(mutable_graph, weights, node_reference, blob_names, reduced_node_count);
 
     // reduce common const weight node_reference
     for (int i = 0; i < node_count; i++)
@@ -3600,6 +3663,10 @@ int main(int argc, char** argv)
         {
             fprintf(pp, "%-16s", "UnaryOp");
         }
+        else if (op == "Crop")
+        {
+            fprintf(pp, "%-16s", "Crop");
+        }
         else if (op == "DepthToSpace")
         {
             fprintf(pp, "%-16s", "PixelShuffle");
@@ -3632,6 +3699,10 @@ int main(int argc, char** argv)
         else if (op == "Floor")
         {
             fprintf(pp, "%-16s", "UnaryOp");
+        }
+        else if (op == "Gelu")
+        {
+            fprintf(pp, "%-16s", "GELU");
         }
         else if (op == "Gemm")
         {
@@ -4074,7 +4145,7 @@ int main(int argc, char** argv)
         else if (op == "Concat")
         {
             int axis = get_node_attr_i(node, "axis", 1);
-            fprintf(pp, " 0=%d", axis - 1);
+            fprintf(pp, " 0=%d", axis > 0 ? axis - 1 : axis);
         }
         else if (op == "Constant")
         {
@@ -4327,6 +4398,27 @@ int main(int argc, char** argv)
             int op_type = 10;
             fprintf(pp, " 0=%d", op_type);
         }
+        else if (op == "Crop")
+        {
+            auto starts = get_node_attr_ai(node, "starts");
+            fprintf(pp, " -23309=%zu", starts.size());
+            for (size_t j = 0; j < starts.size(); ++j)
+            {
+                fprintf(pp, ",%i", starts[j]);
+            }
+            auto ends = get_node_attr_ai(node, "ends");
+            fprintf(pp, " -23310=%zu", ends.size());
+            for (size_t j = 0; j < ends.size(); ++j)
+            {
+                fprintf(pp, ",%i", ends[j]);
+            }
+            auto axis = get_node_attr_ai(node, "axis");
+            fprintf(pp, " -23311=%zu", axis.size());
+            for (size_t j = 0; j < axis.size(); ++j)
+            {
+                fprintf(pp, ",%i", axis[j]);
+            }
+        }
         else if (op == "DepthToSpace")
         {
             // pixelshuffle
@@ -4409,6 +4501,10 @@ int main(int argc, char** argv)
         {
             int op_type = 2;
             fprintf(pp, " 0=%d", op_type);
+        }
+        else if (op == "Gelu")
+        {
+            fprintf(pp, " 0=1");
         }
         else if (op == "Gemm")
         {
@@ -5365,9 +5461,9 @@ int main(int argc, char** argv)
                 fprintf(pp, " -23303=%zu", axes.size());
                 for (size_t j = 0; j < axes.size(); j++)
                 {
-                    if (axes[j] == 0 || axes[j] > 3 || axes[j] < -3)
+                    if (axes[j] == 0 || axes[j] > 4 || axes[j] < -3)
                         fprintf(stderr, "Unsupported reduction axes !\n");
-                    fprintf(pp, ",%d", axes[j]);
+                    fprintf(pp, ",%d", axes[j] > 0 ? axes[j] - 1 : axes[j]);
                 }
             }
             else
@@ -5376,6 +5472,7 @@ int main(int argc, char** argv)
                 fprintf(pp, " 1=%d", 1);
             }
             fprintf(pp, " 4=%d", keepdims);
+            fprintf(pp, " 5=1");
         }
         else if (op == "Reorg")
         {
@@ -5765,9 +5862,9 @@ int main(int argc, char** argv)
                 fprintf(pp, " -23303=%zu", axes.size());
                 for (int i = 0; i < (int)axes.size(); i++)
                 {
-                    if (axes[i] == 0 || axes[i] > 3 || axes[i] < -3)
+                    if (axes[i] == 0 || axes[i] > 4 || axes[i] < -3)
                         fprintf(stderr, "Unsupported squeeze axes !\n");
-                    fprintf(pp, ",%d", axes[i]);
+                    fprintf(pp, ",%d", axes[i] > 0 ? axes[i] - 1 : axes[i]);
                 }
             }
         }
@@ -5925,7 +6022,7 @@ int main(int argc, char** argv)
             {
                 if (axes[i] == 0 || axes[i] > 4 || axes[i] < -4)
                     fprintf(stderr, "Unsupported unsqueeze axes !\n");
-                fprintf(pp, ",%d", axes[i]);
+                fprintf(pp, ",%d", axes[i] > 0 ? axes[i] - 1 : axes[i]);
             }
         }
         else
