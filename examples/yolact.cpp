@@ -33,7 +33,8 @@ struct Object
     cv::Mat mask;
 };
 
-struct ParameterP{
+struct ParameterP
+{
     float confidence_thresh = 0.5f;
     float nms_threshold = 0.5f;
     int keep_top_k = 200;
@@ -168,7 +169,7 @@ static int detect_yolact(const cv::Mat& bgr, std::vector<Object>& objects)
     const int conv_ws[5] = {69, 35, 18, 9, 5};
     const int conv_hs[5] = {69, 35, 18, 9, 5};
 
-    const float aspect_ratios[3] = {1.f ,0.5f, 2.f};
+    const float aspect_ratios[3] = {1.f, 0.5f, 2.f};
     const float scales[5] = {24.f, 48.f, 96.f, 192.f, 384.f};
 
     const float confidence_thresh = 0.05f;
@@ -206,7 +207,7 @@ static int detect_yolact(const cv::Mat& bgr, std::vector<Object>& objects)
 
                         // This is for backward compatibility with a bug where I made everything square by accident
                         // cfg.backbone.use_square_anchors:
-//                        h = w;
+                        //                        h = w;
 
                         pb[0] = cx;
                         pb[1] = cy;
@@ -219,8 +220,6 @@ static int detect_yolact(const cv::Mat& bgr, std::vector<Object>& objects)
             }
         }
     }
-
-
 
     std::vector<std::vector<Object> > class_candidates;
     class_candidates.resize(num_class);
@@ -236,7 +235,7 @@ static int detect_yolact(const cv::Mat& bgr, std::vector<Object>& objects)
         // start from 1 to skip background
         int label = 0;
         float score = 0.f;
-        for (int j = 1; j < num_class-1; j++)
+        for (int j = 1; j < num_class - 1; j++)
         {
             float class_score = conf[j];
             if (class_score > score)
@@ -366,10 +365,11 @@ static inline float sigmoid(float x)
 {
     return static_cast<float>(1.f / (1.f + exp(-x)));
 }
-static void get_priors(ncnn::Mat &priorbox, int conv_w, int conv_h ,float scale, int target_size){
+static void get_priors(ncnn::Mat& priorbox, int conv_w, int conv_h, float scale, int target_size)
+{
     // make priorbox
     float* pb = priorbox;
-    const float aspect_ratios[3] = {1.f ,0.5f, 2.f};
+    const float aspect_ratios[3] = {1.f, 0.5f, 2.f};
     for (int i = 0; i < conv_h; i++)
     {
         for (int j = 0; j < conv_w; j++)
@@ -389,7 +389,7 @@ static void get_priors(ncnn::Mat &priorbox, int conv_w, int conv_h ,float scale,
 
                 // This is for backward compatibility with a bug where I made everything square by accident
                 // cfg.backbone.use_square_anchors:
-//                        h = w;
+                //                        h = w;
 
                 pb[0] = cx;
                 pb[1] = cy;
@@ -401,8 +401,8 @@ static void get_priors(ncnn::Mat &priorbox, int conv_w, int conv_h ,float scale,
     }
 }
 
-static void generate_proposals_mm(float scale, int grid_size,const cv::Mat& bgr, const ncnn::Mat& in_pad, const ncnn::Mat& confidence, const ncnn::Mat& location,
-                                  const ncnn::Mat& mask,ncnn::Mat& maskmaps, ParameterP parameterP, std::vector<Object>& objects)
+static void generate_proposals_mm(float scale, int grid_size, const cv::Mat& bgr, const ncnn::Mat& in_pad, const ncnn::Mat& confidence, const ncnn::Mat& location,
+                                  const ncnn::Mat& mask, ncnn::Mat& maskmaps, ParameterP parameterP, std::vector<Object>& objects)
 {
     // get input info
     int target_size = in_pad.w;
@@ -411,7 +411,7 @@ static void generate_proposals_mm(float scale, int grid_size,const cv::Mat& bgr,
     int img_h = bgr.rows;
 
     // anchor
-    int num_priors = grid_size * grid_size *3;
+    int num_priors = grid_size * grid_size * 3;
     ncnn::Mat priorbox(4, num_priors);
     get_priors(priorbox, grid_size, grid_size, scale, target_size);
 
@@ -429,7 +429,7 @@ static void generate_proposals_mm(float scale, int grid_size,const cv::Mat& bgr,
         // start from 1 to skip background
         int label = 0;
         float score = 0.f;
-        for (int j = 1; j < num_class-1; j++)
+        for (int j = 1; j < num_class - 1; j++)
         {
             float class_score = conf[j];
             if (class_score > score)
@@ -550,12 +550,10 @@ static void generate_proposals_mm(float scale, int grid_size,const cv::Mat& bgr,
             }
         }
     }
-
 }
 
-
-static int detect_yolact_mm(const cv::Mat& bgr, std::vector<Object>& objects){
-
+static int detect_yolact_mm(const cv::Mat& bgr, std::vector<Object>& objects)
+{
     ncnn::Net yolact;
 
     yolact.opt.use_vulkan_compute = true;
@@ -584,9 +582,8 @@ static int detect_yolact_mm(const cv::Mat& bgr, std::vector<Object>& objects){
     const int conv_ws[5] = {69, 35, 18, 9, 5};
     const int conv_hs[5] = {69, 35, 18, 9, 5};
 
-    const float aspect_ratios[3] = {1.f ,0.5f, 2.f};
+    const float aspect_ratios[3] = {1.f, 0.5f, 2.f};
     const float scales[5] = {24.f, 48.f, 96.f, 192.f, 384.f};
-
 
     ParameterP parameterP;
     // make priorbox
@@ -601,12 +598,12 @@ static int detect_yolact_mm(const cv::Mat& bgr, std::vector<Object>& objects){
         ncnn::Mat confidence;
 
         // extract five level feature
-        ex.extract("634", confidence);   // 64*64*12(3*5)  3 anchor
-        ex.extract("646", location); // 69*69*12(3*4)
+        ex.extract("634", confidence); // 64*64*12(3*5)  3 anchor
+        ex.extract("646", location);   // 69*69*12(3*4)
         ex.extract("658", mask);       // maskdim 69*69 *24(3*8) 8 prior
         std::vector<Object> objects69;
 
-        generate_proposals_mm(scales[0], conv_ws[0] ,bgr, in, confidence, location, mask, maskmaps, parameterP, objects69);
+        generate_proposals_mm(scales[0], conv_ws[0], bgr, in, confidence, location, mask, maskmaps, parameterP, objects69);
         objects.insert(objects.end(), objects69.begin(), objects69.end());
     }
 
@@ -618,11 +615,11 @@ static int detect_yolact_mm(const cv::Mat& bgr, std::vector<Object>& objects){
 
         // extract five level feature
 
-        ex.extract("673", confidence);   // 64*64*12(3*5)  3 anchor
-        ex.extract("685", location); // 69*69*12(3*4)
+        ex.extract("673", confidence); // 64*64*12(3*5)  3 anchor
+        ex.extract("685", location);   // 69*69*12(3*4)
         ex.extract("697", mask);       // maskdim 69*69 *24(3*8) 8 prior
         std::vector<Object> objects35;
-        generate_proposals_mm(scales[1], conv_ws[1] ,bgr, in, confidence, location, mask, maskmaps, parameterP, objects35);
+        generate_proposals_mm(scales[1], conv_ws[1], bgr, in, confidence, location, mask, maskmaps, parameterP, objects35);
         objects.insert(objects.end(), objects35.begin(), objects35.end());
     }
 
@@ -633,11 +630,11 @@ static int detect_yolact_mm(const cv::Mat& bgr, std::vector<Object>& objects){
         ncnn::Mat confidence;
 
         // extract five level feature
-        ex.extract("712", confidence);   // 64*64*12(3*5)  3 anchor
-        ex.extract("724", location); // 69*69*12(3*4)
+        ex.extract("712", confidence); // 64*64*12(3*5)  3 anchor
+        ex.extract("724", location);   // 69*69*12(3*4)
         ex.extract("736", mask);       // maskdim 69*69 *24(3*8) 8 prior
         std::vector<Object> objects18;
-        generate_proposals_mm(scales[2], conv_ws[2] ,bgr, in, confidence, location, mask, maskmaps, parameterP, objects18);
+        generate_proposals_mm(scales[2], conv_ws[2], bgr, in, confidence, location, mask, maskmaps, parameterP, objects18);
         objects.insert(objects.end(), objects18.begin(), objects18.end());
     }
 
@@ -648,11 +645,11 @@ static int detect_yolact_mm(const cv::Mat& bgr, std::vector<Object>& objects){
         ncnn::Mat confidence;
 
         // extract five level feature
-        ex.extract("751", confidence);   // 64*64*12(3*5)  3 anchor
-        ex.extract("763", location); // 69*69*12(3*4)
+        ex.extract("751", confidence); // 64*64*12(3*5)  3 anchor
+        ex.extract("763", location);   // 69*69*12(3*4)
         ex.extract("775", mask);       // maskdim 69*69 *24(3*8) 8 prior
         std::vector<Object> objects9;
-        generate_proposals_mm(scales[3], conv_ws[3] ,bgr, in, confidence, location, mask, maskmaps, parameterP, objects9);
+        generate_proposals_mm(scales[3], conv_ws[3], bgr, in, confidence, location, mask, maskmaps, parameterP, objects9);
         objects.insert(objects.end(), objects9.begin(), objects9.end());
     }
 
@@ -663,16 +660,17 @@ static int detect_yolact_mm(const cv::Mat& bgr, std::vector<Object>& objects){
         ncnn::Mat confidence;
 
         // extract five level feature
-        ex.extract("790", confidence);   // 4 x 19248
-        ex.extract("802", location);       // maskdim 32 x 19248
-        ex.extract("814", mask); // 81 x 19248
+        ex.extract("790", confidence); // 4 x 19248
+        ex.extract("802", location);   // maskdim 32 x 19248
+        ex.extract("814", mask);       // 81 x 19248
         std::vector<Object> objects5;
-        generate_proposals_mm(scales[4], conv_ws[4] ,bgr, in, confidence, location, mask, maskmaps, parameterP, objects5);
+        generate_proposals_mm(scales[4], conv_ws[4], bgr, in, confidence, location, mask, maskmaps, parameterP, objects5);
         objects.insert(objects.end(), objects5.begin(), objects5.end());
     }
 }
 
-static int detect_yolact_mm_v1(const cv::Mat& bgr, std::vector<Object>& objects){
+static int detect_yolact_mm_v1(const cv::Mat& bgr, std::vector<Object>& objects)
+{
     ncnn::Net yolact;
 
     yolact.opt.use_vulkan_compute = true;
@@ -715,7 +713,7 @@ static int detect_yolact_mm_v1(const cv::Mat& bgr, std::vector<Object>& objects)
     const int conv_ws[5] = {69, 35, 18, 9, 5};
     const int conv_hs[5] = {69, 35, 18, 9, 5};
 
-    const float aspect_ratios[3] = {0.5f , 1.f , 2.f};
+    const float aspect_ratios[3] = {0.5f, 1.f, 2.f};
     const float scales[5] = {24.f, 48.f, 96.f, 192.f, 384.f};
 
     const float confidence_thresh = 0.5f;
@@ -753,7 +751,7 @@ static int detect_yolact_mm_v1(const cv::Mat& bgr, std::vector<Object>& objects)
 
                         // This is for backward compatibility with a bug where I made everything square by accident
                         // cfg.backbone.use_square_anchors:
-//                        h = w;
+                        //                        h = w;
 
                         pb[0] = cx;
                         pb[1] = cy;
@@ -767,7 +765,6 @@ static int detect_yolact_mm_v1(const cv::Mat& bgr, std::vector<Object>& objects)
         }
     }
 
-
     int layer_num_priors = 0;
     int layer_num_priors_index = 0;
     for (int p = 0; p < 5; p++)
@@ -776,7 +773,7 @@ static int detect_yolact_mm_v1(const cv::Mat& bgr, std::vector<Object>& objects)
         int conv_h = conv_hs[p];
 
         std::vector<std::vector<Object> > class_candidates;
-        class_candidates.resize(num_class-1);
+        class_candidates.resize(num_class - 1);
 
         layer_num_priors += conv_w * conv_h * 3;
         for (; layer_num_priors_index < layer_num_priors; layer_num_priors_index++)
@@ -838,7 +835,6 @@ static int detect_yolact_mm_v1(const cv::Mat& bgr, std::vector<Object>& objects)
 
             class_candidates[label].push_back(obj);
         }
-
 
         std::vector<Object> proposals;
         for (int i = 0; i < (int)class_candidates.size(); i++)
@@ -917,30 +913,30 @@ static int detect_yolact_mm_v1(const cv::Mat& bgr, std::vector<Object>& objects)
 
         objects.insert(objects.end(), proposals.begin(), proposals.end());
 
-//        layer_num_priors_index += conv_w * conv_h * 3;
+        //        layer_num_priors_index += conv_w * conv_h * 3;
     }
 }
 
 static void draw_objects(const cv::Mat& bgr, const std::vector<Object>& objects)
 {
-//    static const char* class_names[] = {"background",
-//                                        "person", "bicycle", "car", "motorcycle", "airplane", "bus",
-//                                        "train", "truck", "boat", "traffic light", "fire hydrant",
-//                                        "stop sign", "parking meter", "bench", "bird", "cat", "dog",
-//                                        "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe",
-//                                        "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
-//                                        "skis", "snowboard", "sports ball", "kite", "baseball bat",
-//                                        "baseball glove", "skateboard", "surfboard", "tennis racket",
-//                                        "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl",
-//                                        "banana", "apple", "sandwich", "orange", "broccoli", "carrot",
-//                                        "hot dog", "pizza", "donut", "cake", "chair", "couch",
-//                                        "potted plant", "bed", "dining table", "toilet", "tv", "laptop",
-//                                        "mouse", "remote", "keyboard", "cell phone", "microwave", "oven",
-//                                        "toaster", "sink", "refrigerator", "book", "clock", "vase",
-//                                        "scissors", "teddy bear", "hair drier", "toothbrush"
-//                                       };
+    //    static const char* class_names[] = {"background",
+    //                                        "person", "bicycle", "car", "motorcycle", "airplane", "bus",
+    //                                        "train", "truck", "boat", "traffic light", "fire hydrant",
+    //                                        "stop sign", "parking meter", "bench", "bird", "cat", "dog",
+    //                                        "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe",
+    //                                        "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
+    //                                        "skis", "snowboard", "sports ball", "kite", "baseball bat",
+    //                                        "baseball glove", "skateboard", "surfboard", "tennis racket",
+    //                                        "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl",
+    //                                        "banana", "apple", "sandwich", "orange", "broccoli", "carrot",
+    //                                        "hot dog", "pizza", "donut", "cake", "chair", "couch",
+    //                                        "potted plant", "bed", "dining table", "toilet", "tv", "laptop",
+    //                                        "mouse", "remote", "keyboard", "cell phone", "microwave", "oven",
+    //                                        "toaster", "sink", "refrigerator", "book", "clock", "vase",
+    //                                        "scissors", "teddy bear", "hair drier", "toothbrush"
+    //                                       };
 
-    static const char* class_names[] = {"_background_","daiding_101", "layer", "ty_cj_lsbx"};
+    static const char* class_names[] = {"_background_", "daiding_101", "layer", "ty_cj_lsbx"};
 
     static const unsigned char colors[81][3] = {
         {56, 0, 255},
@@ -1037,10 +1033,10 @@ static void draw_objects(const cv::Mat& bgr, const std::vector<Object>& objects)
         if (obj.prob < 0.15)
             continue;
 
-        if(obj.label == 1)
+        if (obj.label == 1)
             continue;
 
-        if(obj.label == 3)
+        if (obj.label == 3)
             continue;
 
         fprintf(stderr, "%d = %.5f at %.2f %.2f %.2f x %.2f\n", obj.label, obj.prob,
@@ -1111,7 +1107,7 @@ int main(int argc, char** argv)
     }
 
     std::vector<Object> objects;
-//    detect_yolact(m, objects);
+    //    detect_yolact(m, objects);
     detect_yolact_mm_v1(m, objects);
 
     draw_objects(m, objects);
