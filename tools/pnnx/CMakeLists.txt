@@ -34,10 +34,14 @@ option(PNNX_COVERAGE "build for coverage" OFF)
 #set(Torch_INSTALL_DIR "/home/nihui/.local/lib/python3.9/site-packages/torch" CACHE STRING "")
 #set(Torch_INSTALL_DIR "/home/nihui/osd/pnnx/pytorch-v1.10.0/build/install" CACHE STRING "")
 #set(Torch_INSTALL_DIR "/home/nihui/osd/pnnx/libtorch" CACHE STRING "")
-set(TorchVision_INSTALL_DIR "/home/nihui/osd/vision/build/install" CACHE STRING "")
+#set(TorchVision_INSTALL_DIR "/home/nihui/osd/vision/build/install" CACHE STRING "")
+set(Torch_INSTALL_DIR "/data/data1/yzh/projects/ncnnlib/libtorch" CACHE STRING "")
+#set(Torch_INSTALL_DIR "/opt/conda/envs/trainEnvs/lib/python3.8/site-packages/torch" CACHE STRING "")
+message(STATUS ${Torch_INSTALL_DIR})
 
 #set(Torch_DIR "${Torch_INSTALL_DIR}/share/cmake/Torch")
 set(TorchVision_DIR "${TorchVision_INSTALL_DIR}/share/cmake/TorchVision")
+#set(TorchVision_DIR "/opt/conda/envs/trainEnvs/lib/python3.8/site-packages/torch")
 
 find_package(Python3 COMPONENTS Interpreter Development)
 
